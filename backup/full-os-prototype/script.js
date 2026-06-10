@@ -1,5 +1,5 @@
 const state = {
-  projectName: "Untitled competitive analysis",
+  projectName: "Untitled UX research system",
   outputs: {
     competitive: "",
     brief: "",
@@ -85,7 +85,7 @@ const markDirty = () => {
 };
 
 const updateCounts = () => {
-  const count = state.outputs.competitive ? 1 : 0;
+  const count = Object.values(state.outputs).filter(Boolean).length;
   selectors.moduleCount.textContent = `${count} output${count === 1 ? "" : "s"}`;
 };
 
@@ -522,7 +522,7 @@ const setFieldValue = (id, value) => {
 
 const demoProject = {
   fields: {
-    projectName: "Competitive analysis pilot",
+    projectName: "UX Research OS operational pilot",
     category: "UX research repository and synthesis tools",
     competitors: "Dovetail\nEnjoyHQ\nMaze",
     criteria: "Onboarding\nAI synthesis\nParticipant recruitment\nStakeholder reporting\nJira integration",

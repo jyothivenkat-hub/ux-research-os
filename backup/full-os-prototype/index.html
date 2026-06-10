@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Competitive analysis release for UX Research OS. Type competitor products, collect public web evidence, build a source ledger, and export a pros, cons, opportunity, and risk matrix."
+      content="An end-to-end research operating system for running product research with AI agents. Supports competitive analysis, research briefs, questionnaire generation, transcript synthesis, final reports, and Jira or Linear-ready issue handoffs from one connected workflow."
     />
-    <title>Competitive Analysis | UX Research OS</title>
+    <title>UX Research Operating System</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -17,12 +17,17 @@
           <div class="mark" aria-hidden="true">UX</div>
           <div>
             <p class="eyebrow">Research OS</p>
-            <h1>Competitive workspace</h1>
+            <h1>Study workspace</h1>
           </div>
         </div>
 
         <nav class="module-nav" aria-label="Modules">
           <button class="nav-item active" data-view="competitive" type="button">Competitive</button>
+          <button class="nav-item" data-view="brief" type="button">Brief</button>
+          <button class="nav-item" data-view="questions" type="button">Questions</button>
+          <button class="nav-item" data-view="personas" type="button">Personas</button>
+          <button class="nav-item" data-view="synthesis" type="button">Synthesis</button>
+          <button class="nav-item" data-view="reporting" type="button">Reporting</button>
         </nav>
 
         <div class="project-tools">
@@ -49,7 +54,7 @@
         <section class="view active" id="competitive" aria-labelledby="competitiveTitle">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Release 1</p>
+              <p class="eyebrow">Module 1</p>
               <h2 id="competitiveTitle">Competitive analysis</h2>
             </div>
             <button id="runCompetitive" class="primary-button" type="button">Generate matrix</button>
@@ -137,7 +142,7 @@
           </div>
         </section>
 
-        <section class="view backlog-module" id="brief" aria-labelledby="briefTitle" hidden>
+        <section class="view" id="brief" aria-labelledby="briefTitle">
           <div class="section-heading">
             <div>
               <p class="eyebrow">Module 2</p>
@@ -193,7 +198,7 @@
           </div>
         </section>
 
-        <section class="view backlog-module" id="questions" aria-labelledby="questionsTitle" hidden>
+        <section class="view" id="questions" aria-labelledby="questionsTitle">
           <div class="section-heading">
             <div>
               <p class="eyebrow">Module 3</p>
@@ -248,7 +253,7 @@
           </div>
         </section>
 
-        <section class="view backlog-module" id="personas" aria-labelledby="personasTitle" hidden>
+        <section class="view" id="personas" aria-labelledby="personasTitle">
           <div class="section-heading">
             <div>
               <p class="eyebrow">Module 4</p>
@@ -300,7 +305,7 @@
           </div>
         </section>
 
-        <section class="view backlog-module" id="synthesis" aria-labelledby="synthesisTitle" hidden>
+        <section class="view" id="synthesis" aria-labelledby="synthesisTitle">
           <div class="section-heading">
             <div>
               <p class="eyebrow">Module 5</p>
@@ -343,7 +348,7 @@
           </div>
         </section>
 
-        <section class="view backlog-module" id="reporting" aria-labelledby="reportingTitle" hidden>
+        <section class="view" id="reporting" aria-labelledby="reportingTitle">
           <div class="section-heading">
             <div>
               <p class="eyebrow">Module 6</p>
