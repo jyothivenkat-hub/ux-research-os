@@ -6,6 +6,12 @@ A dependency-free static prototype for an end-to-end UX research workspace.
 
 ![UX Research OS competitive module](./ux-research-os-competitive.png)
 
+## Overview
+
+UX Research OS is a local-first research workspace for planning studies, collecting evidence, generating research artifacts, synthesizing transcripts, and creating product handoff lines.
+
+The app now opens with a seeded demo project by default so reviewers can immediately see the Competitive Analysis workflow populated with competitors, source evidence, a source ledger, scorecards, opportunities, risks, and CSV export.
+
 ## What is included
 
 - Competitive analysis workspace with competitor inputs, evaluation criteria, sourced-research search tabs, source ledger, evidence status, and a pros/cons matrix.
@@ -14,6 +20,25 @@ A dependency-free static prototype for an end-to-end UX research workspace.
 - Synthetic persona variants with flow run results, severity, step-level findings, and issue candidates.
 - Transcript synthesis with participant-coded evidence, theme confidence, severity, quotes, implications, and tracker candidates.
 - Reporting and Linear/Jira-ready issue lines with an evidence ledger, Markdown, CSV, JSON, copy, import, export, and local save.
+
+## Default demo
+
+On first load, the app seeds a demo called `UX Research OS operational pilot` and automatically generates the Competitive Analysis output. If a saved/imported project exists in browser local storage, that saved project is loaded instead.
+
+Use `Load demo` at any time to reset the visible fields to the demo project.
+
+## Competitive workflow
+
+The Competitive module is the most complete workflow right now. It supports:
+
+- competitor and criteria entry
+- pasted evidence notes in the format `Product | Source | Pros: ... Cons: ...`
+- structured source capture with title, URL, product, date, status, and evidence note
+- competitor scorecard with pros, cons, source count, next move, and confidence
+- criterion scorecard
+- opportunity and risk table
+- clickable research queue
+- CSV export
 
 ## Run
 
@@ -32,6 +57,14 @@ vercel --prod
 ## Project status
 
 Current focus: make each workflow operational one by one. Competitive analysis is the most complete module: it supports source capture, evidence parsing, scorecards, opportunity/risk rows, research queue links, and CSV export.
+
+The remaining modules are functional prototypes and should be hardened next in this order:
+
+1. Research brief generator
+2. Question generator
+3. Synthetic persona flow testing
+4. Transcript synthesis
+5. Reporting and Jira/Linear handoff
 
 ## Integration path
 

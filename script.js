@@ -429,8 +429,8 @@ const setFieldValue = (id, value) => {
   field.dispatchEvent(new Event("input", { bubbles: true }));
 };
 
-document.querySelector("#loadDemo").addEventListener("click", () => {
-  const demoFields = {
+const demoProject = {
+  fields: {
     projectName: "UX Research OS operational pilot",
     category: "UX research repository and synthesis tools",
     competitors: "Dovetail\nEnjoyHQ\nMaze",
@@ -456,8 +456,8 @@ document.querySelector("#loadDemo").addEventListener("click", () => {
     synthesisTags: "trust, jira, onboarding, synthesis, decisions, source",
     audience: "Design, product, engineering",
     ownerTeam: "Research platform",
-  };
-  state.sources = [
+  },
+  sources: [
     {
       id: "demo-dovetail-g2",
       title: "Dovetail G2 review pattern",
@@ -485,11 +485,19 @@ document.querySelector("#loadDemo").addEventListener("click", () => {
       status: "Captured",
       note: "Repository value is clear, but setup effort can feel manual for teams without research ops support.",
     },
-  ];
-  Object.entries(demoFields).forEach(([id, value]) => setFieldValue(id, value));
-  state.projectName = demoFields.projectName;
+  ],
+};
+
+const loadDemoProject = ({ toast = true } = {}) => {
+  Object.entries(demoProject.fields).forEach(([id, value]) => setFieldValue(id, value));
+  state.projectName = demoProject.fields.projectName;
+  state.sources = demoProject.sources.map((source) => ({ ...source }));
   renderSourceList();
-  showToast("Demo study loaded");
+  if (toast) showToast("Demo study loaded");
+};
+
+document.querySelector("#loadDemo").addEventListener("click", () => {
+  loadDemoProject();
 });
 
 document.querySelector("#runCompetitive").addEventListener("click", () => {
@@ -1302,13 +1310,21 @@ const hydrate = (payload) => {
 };
 
 const saved = localStorage.getItem(storageKey);
+let loadedSavedProject = false;
 if (saved) {
   try {
     hydrate(JSON.parse(saved));
     selectors.saveState.textContent = "Saved";
+    loadedSavedProject = true;
   } catch {
     localStorage.removeItem(storageKey);
   }
+}
+
+if (!loadedSavedProject) {
+  loadDemoProject({ toast: false });
+  document.querySelector("#runCompetitive").click();
+  selectors.saveState.textContent = "Demo";
 }
 
 selectors.projectName.addEventListener("input", () => {
