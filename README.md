@@ -2,6 +2,8 @@
 
 A dependency-free static prototype for an end-to-end UX research workspace.
 
+[Live app](https://research-two-nu.vercel.app) · [GitHub repo](https://github.com/jyothivenkat-hub/ux-research-os)
+
 ![UX Research OS competitive module](./ux-research-os-competitive.png)
 
 ## What is included
