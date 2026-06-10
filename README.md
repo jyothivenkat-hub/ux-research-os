@@ -1,6 +1,6 @@
-# UX Research OS
+# UX Research Operating System
 
-A dependency-free static prototype for an end-to-end UX research workspace.
+An end-to-end research operating system for running product research with AI agents. Supports competitive analysis, research briefs, questionnaire generation, transcript synthesis, final reports, and Jira or Linear-ready issue handoffs from one connected workflow.
 
 [Live app](https://research-two-nu.vercel.app) · [GitHub repo](https://github.com/jyothivenkat-hub/ux-research-os)
 
