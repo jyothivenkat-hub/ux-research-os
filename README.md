@@ -10,7 +10,7 @@ An end-to-end research operating system for running product research with AI age
 
 UX Research OS is a local-first research workspace for planning studies, collecting evidence, generating research artifacts, synthesizing transcripts, and creating product handoff lines. Each module produces structured artifacts that can be copied, saved, exported, or pulled into the final report.
 
-The public demo is intentionally static: it ships with no API keys, no backend proxy, and no third-party tracker credentials. It opens with a seeded demo project by default so reviewers can immediately see the Competitive Analysis workflow populated with competitors, source evidence, a source ledger, scorecards, opportunities, risks, and CSV export.
+The public demo ships with no API keys, no client-side secrets, and no third-party tracker credentials. Competitive Analysis uses a no-key server route to collect public search snippets, then opens with a seeded demo project so reviewers can immediately see competitors, source evidence, a source ledger, scorecards, opportunities, risks, and CSV export.
 
 ## What is included
 
@@ -42,9 +42,15 @@ The Competitive module is the most complete workflow right now. It supports:
 
 ## Run
 
-Open `index.html` in a browser.
+For the full local demo, run the local Node server:
 
-No build step is required.
+```bash
+node server.js
+```
+
+Then open `http://localhost:8000`.
+
+Opening `index.html` directly still works for the static workflows, but live competitive research needs the local server route at `/api/competitive-research`.
 
 ## Deploy
 
@@ -56,11 +62,11 @@ vercel --prod
 
 ## Project status
 
-Current status: local workflows are operational end to end. The app runs without a backend, opens with a seeded demo, saves locally, exports project JSON, and generates downloadable artifacts for the main research flows. Public sharing is safe because no service credentials or private API endpoints are included in the client code.
+Current status: local workflows are operational end to end. The app opens with a seeded demo, saves locally, exports project JSON, generates downloadable artifacts for the main research flows, and uses a no-key server-side search route for Competitive Analysis. Public sharing is safe because no service credentials or private tracker endpoints are included in the client code.
 
 Module coverage:
 
-1. Competitive analysis: source capture, evidence parsing, scorecards, opportunity/risk rows, research queue links, and CSV export.
+1. Competitive analysis: no-key server-side web search, source capture, evidence parsing, scorecards, opportunity/risk rows, research queue links, and CSV export.
 2. Research brief: decision contract, assumption ledger, research questions, recruiting plan, session protocol, and downloadable brief artifacts.
 3. Question generator: qual/quant instrument, task plan, metrics, operating rules, and CSV export.
 4. Synthetic persona flow testing: agent run log, step findings, severity, and issue candidates.
@@ -69,7 +75,7 @@ Module coverage:
 
 ## Integration path
 
-The current build is intentionally static so it runs immediately. It is operational as a local research workflow, with local source capture and exportable evidence, but automated source collection, LLM generation, and tracker creation are not bundled in the public demo. To make the OS production-grade, wire these modules to authenticated server-side services:
+The current build is intentionally lightweight so it runs immediately. It is operational as a local research workflow, with live competitive-search snippets, local source capture, and exportable evidence, but LLM generation and tracker creation are not bundled in the public demo. To make the OS production-grade, wire these modules to authenticated server-side services:
 
 - Internet research: server-side search provider plus source capture, citation extraction, review/forum scraping, and deduped evidence storage.
 - AI generation: server-side model-backed brief/question/persona/synthesis generation with project memory.

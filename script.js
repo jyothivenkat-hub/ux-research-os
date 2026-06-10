@@ -190,6 +190,15 @@ const positiveWords = [
   "simple",
   "save",
   "saves",
+  "actionable",
+  "automation",
+  "automatically",
+  "centralizes",
+  "collaboration",
+  "insight",
+  "insights",
+  "integrations",
+  "platform",
 ];
 
 const negativeWords = [
@@ -344,6 +353,55 @@ const sourceToEvidenceItem = (source) => ({
   pros: extractEvidenceLabel(source.note || "", "Pros"),
   cons: extractEvidenceLabel(source.note || "", "Cons"),
 });
+
+const sourceFingerprint = (source) =>
+  [source.product, source.url, source.title].filter(Boolean).join("|").toLowerCase();
+
+const fetchCompetitiveResearch = async ({ category, competitors, criteria, sourceFocus }) => {
+  try {
+    const response = await fetch("/api/competitive-research", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category, competitors, criteria, sourceFocus }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.warning || payload.error || "Research request failed");
+    return payload;
+  } catch (error) {
+    return {
+      sources: [],
+      warning: error.message || "Live web research unavailable. Generated from local evidence.",
+    };
+  }
+};
+
+const mergeResearchSources = (sources = []) => {
+  const existing = new Set(state.sources.map(sourceFingerprint));
+  const imported = sources
+    .filter((source) => source && (source.title || source.note || source.url))
+    .map((source) => ({
+      id: source.id || `WEB-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      title: source.title || "Public web result",
+      url: normalizeSourceUrl(source.url),
+      product: source.product || "General",
+      date: source.date || new Date().toISOString().slice(0, 10),
+      status: source.status || "Captured",
+      note: source.note || "",
+    }))
+    .filter((source) => {
+      const fingerprint = sourceFingerprint(source);
+      if (!fingerprint || existing.has(fingerprint)) return false;
+      existing.add(fingerprint);
+      return true;
+    });
+
+  if (imported.length) {
+    state.sources = [...state.sources, ...imported];
+    renderSourceList();
+  }
+
+  return imported.length;
+};
 
 const statusWeight = (status) => {
   if (status === "Validated") return 3;
@@ -523,13 +581,12 @@ document.querySelector("#loadDemo").addEventListener("click", () => {
   loadDemoProject();
 });
 
-document.querySelector("#runCompetitive").addEventListener("click", () => {
+document.querySelector("#runCompetitive").addEventListener("click", async () => {
+  const runButton = document.querySelector("#runCompetitive");
+  const originalLabel = runButton.textContent;
   const category = getValue("category") || "the category";
   const competitors = lines(getValue("competitors"));
   const criteriaInput = lines(getValue("criteria"));
-  const noteItems = splitEvidenceNotes(getValue("competitiveEvidence")).map(parseEvidenceItem);
-  const sourceItems = state.sources.map(sourceToEvidenceItem);
-  const evidenceItems = [...noteItems, ...sourceItems];
   const criteria = criteriaInput.length
     ? criteriaInput
     : [
@@ -545,6 +602,26 @@ document.querySelector("#runCompetitive").addEventListener("click", () => {
     showToast("Add at least one competitor");
     return;
   }
+
+  runButton.disabled = true;
+  runButton.textContent = "Researching...";
+  const webResearch = await fetchCompetitiveResearch({ category, competitors, criteria, sourceFocus });
+  const importedSourceCount = mergeResearchSources(webResearch.sources || []);
+  runButton.disabled = false;
+  runButton.textContent = originalLabel;
+
+  if (importedSourceCount) {
+    showToast(`Added ${importedSourceCount} web evidence source${importedSourceCount === 1 ? "" : "s"}`);
+  } else if (webResearch.warning) {
+    showToast("Generated from local evidence");
+  }
+
+  const noteItems = splitEvidenceNotes(getValue("competitiveEvidence")).map(parseEvidenceItem);
+  const sourceItems = state.sources.map(sourceToEvidenceItem);
+  const evidenceItems = [...noteItems, ...sourceItems];
+  const researchStatus = importedSourceCount
+    ? `Live research added ${importedSourceCount} public search snippet${importedSourceCount === 1 ? "" : "s"} from ${webResearch.source || "the server route"}. Review source links before treating findings as confirmed.`
+    : webResearch.warning || "Live research returned no new sources. Matrix generated from local evidence and research queue links.";
 
   const rows = competitors.map((competitor) => {
     const matchedItems = evidenceItems.filter((item) => sourceMatches(item, competitor));
@@ -654,6 +731,7 @@ document.querySelector("#runCompetitive").addEventListener("click", () => {
   ];
 
   const html = `
+    <div class="callout">${escapeHtml(researchStatus)}</div>
     <div class="tag-row">
       ${criteria.map((criterion) => `<span class="tag">${escapeHtml(criterion)}</span>`).join("")}
     </div>
@@ -676,6 +754,7 @@ document.querySelector("#runCompetitive").addEventListener("click", () => {
 
   const text = [
     `Competitive analysis: ${category}`,
+    `Research status: ${researchStatus}`,
     "",
     toTextTable(["Competitor", "Key criterion", "Pros", "Cons", "Sources", "Next move", "Confidence"], rows),
     "",
