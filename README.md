@@ -8,9 +8,9 @@ An end-to-end research operating system for running product research with AI age
 
 ## Overview
 
-UX Research OS is a local-first research workspace for planning studies, collecting evidence, generating research artifacts, synthesizing transcripts, and creating product handoff lines.
+UX Research OS is a local-first research workspace for planning studies, collecting evidence, generating research artifacts, synthesizing transcripts, and creating product handoff lines. Each module produces structured artifacts that can be copied, saved, exported, or pulled into the final report.
 
-The app now opens with a seeded demo project by default so reviewers can immediately see the Competitive Analysis workflow populated with competitors, source evidence, a source ledger, scorecards, opportunities, risks, and CSV export.
+The public demo is intentionally static: it ships with no API keys, no backend proxy, and no third-party tracker credentials. It opens with a seeded demo project by default so reviewers can immediately see the Competitive Analysis workflow populated with competitors, source evidence, a source ledger, scorecards, opportunities, risks, and CSV export.
 
 ## What is included
 
@@ -56,23 +56,24 @@ vercel --prod
 
 ## Project status
 
-Current focus: make each workflow operational one by one. Competitive analysis is the most complete module: it supports source capture, evidence parsing, scorecards, opportunity/risk rows, research queue links, and CSV export.
+Current status: local workflows are operational end to end. The app runs without a backend, opens with a seeded demo, saves locally, exports project JSON, and generates downloadable artifacts for the main research flows. Public sharing is safe because no service credentials or private API endpoints are included in the client code.
 
-The remaining modules are functional prototypes and should be hardened next in this order:
+Module coverage:
 
-1. Research brief generator
-2. Question generator
-3. Synthetic persona flow testing
-4. Transcript synthesis
-5. Reporting and Jira/Linear handoff
+1. Competitive analysis: source capture, evidence parsing, scorecards, opportunity/risk rows, research queue links, and CSV export.
+2. Research brief: decision contract, assumption ledger, research questions, recruiting plan, session protocol, and downloadable brief artifacts.
+3. Question generator: qual/quant instrument, task plan, metrics, operating rules, and CSV export.
+4. Synthetic persona flow testing: agent run log, step findings, severity, and issue candidates.
+5. Transcript synthesis: codebook, participant evidence matrix, themes, decision rows, and CSV export.
+6. Reporting: module readiness, evidence ledger, final report, and Jira/Linear-ready issue CSV.
 
 ## Integration path
 
-The current build is intentionally static so it runs immediately. It is operational as a local research workflow, with local source capture and exportable evidence, but automated source collection, LLM generation, and tracker creation are still manual or connector-ready. To make the OS production-grade, wire these modules to services:
+The current build is intentionally static so it runs immediately. It is operational as a local research workflow, with local source capture and exportable evidence, but automated source collection, LLM generation, and tracker creation are not bundled in the public demo. To make the OS production-grade, wire these modules to authenticated server-side services:
 
-- Internet research: search API plus source capture, citation extraction, review/forum scraping, and deduped evidence storage.
-- LLM generation: model-backed brief/question/persona/synthesis generation with project memory.
+- Internet research: server-side search provider plus source capture, citation extraction, review/forum scraping, and deduped evidence storage.
+- AI generation: server-side model-backed brief/question/persona/synthesis generation with project memory.
 - Prototype testing: browser automation or product analytics replay for real flow validation.
 - Storage: Supabase, Postgres, Firebase, or local-first IndexedDB sync.
-- Issue tracking: Linear and Jira API connectors using generated issue rows.
+- Issue tracking: server-side Linear and Jira connectors using generated issue rows.
 - Reporting: report templates, stakeholder views, and shareable study readouts.

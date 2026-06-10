@@ -18,9 +18,15 @@ const state = {
     instrument: [],
     agentFindings: [],
     synthesis: [],
+    briefRisks: [],
+    briefPlan: [],
+    questionMetrics: [],
+    participantRows: [],
+    reportDecisions: [],
   },
   sources: [],
   competitiveExportRows: [],
+  moduleExportRows: {},
 };
 
 const selectors = {
@@ -112,6 +118,23 @@ const toTextTable = (headers, rows) => {
   const body = rows.map((row) => `| ${row.join(" | ")} |`).join("\n");
   return `${header}\n${divider}\n${body}`;
 };
+
+const rowsToCsv = (rows) =>
+  rows
+    .map((row) => row.map((cell) => `"${String(cell || "").replaceAll('"', '""')}"`).join(","))
+    .join("\n");
+
+const requireOutput = (key, label) => {
+  if (state.outputs[key]) return true;
+  showToast(`Generate ${label} first`);
+  return false;
+};
+
+const splitSentences = (value) =>
+  value
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
 
 const keywordSummary = (value, limit = 8) => {
   const stop = new Set([
@@ -768,12 +791,36 @@ document.querySelector("#runBrief").addEventListener("click", () => {
     ["A3", "Trust", "Users believe outputs are reliable enough to influence decisions.", "Confidence rating plus evidence inspection", "High"],
     ["A4", "Workflow fit", "The work can move into existing planning and tracker systems.", "Handoff task to Jira/Linear", "Medium"],
   ];
+  const researchQuestions = assumptions.map((row) => [
+    row[0].replace("A", "RQ"),
+    row[1],
+    row[1] === "Problem fit"
+      ? `How often do ${users} encounter the problem behind ${decision}?`
+      : row[1] === "Value comprehension"
+        ? "Can users explain the value proposition without moderator explanation?"
+        : row[1] === "Trust"
+          ? "What evidence do users need before trusting generated outputs?"
+          : "Where should findings land in the user's existing workflow?",
+    row[3],
+  ]);
   const riskRows = risksList.map((risk, index) => [
     `R${index + 1}`,
     risk,
     index < 2 ? "High" : "Medium",
     `Add a task that forces evidence for ${risk.toLowerCase()}.`,
   ]);
+  const recruitRows = [
+    ["Primary segment", users, "Recruit first", "Must have run or consumed research in the last 90 days"],
+    ["Screener", "Research involvement", "Required", "Can describe one recent research decision"],
+    ["Sample", method === "Survey" ? "50+ responses" : "6-8 sessions", "Target", "Stop when top risks have repeated evidence"],
+  ];
+  const protocolRows = [
+    ["0", "Consent and context", "Confirm role, recent research workflow, recording permission"],
+    ["1", "Problem recall", "Ask for recent behavior before showing the concept"],
+    ["2", "Concept/prototype task", "Observe expectations, hesitation, completion, confidence"],
+    ["3", "Trust and handoff", "Probe evidence needs and Jira/Linear/reporting fit"],
+    ["4", "Decision close", `Evaluate against gate: ${threshold}`],
+  ];
   const planRows = [
     ["Recruit", users, "6-8 qual sessions or 50+ survey completes if quant"],
     ["Method", method, "Use the instrument module as the source of truth"],
@@ -788,6 +835,21 @@ document.querySelector("#runBrief").addEventListener("click", () => {
     test: row[3],
     risk: row[4],
   }));
+  state.artifacts.briefRisks = riskRows;
+  state.artifacts.briefPlan = planRows;
+  state.artifacts.researchQuestions = researchQuestions;
+  state.artifacts.recruitingPlan = recruitRows;
+  state.artifacts.protocol = protocolRows;
+  state.moduleExportRows.brief = [
+    ["Section", "ID", "Name", "Detail", "Method or rule", "Priority"],
+    ["Decision", "", "Decision", decision, threshold, ""],
+    ["Decision", "", "Hypothesis", hypothesis, method, ""],
+    ...assumptions.map((row) => ["Assumption", row[0], row[1], row[2], row[3], row[4]]),
+    ...researchQuestions.map((row) => ["Research question", row[0], row[1], row[2], row[3], ""]),
+    ...riskRows.map((row) => ["Risk", row[0], row[1], row[3], "", row[2]]),
+    ...recruitRows.map((row) => ["Recruiting", "", row[0], row[1], row[3], row[2]]),
+    ...protocolRows.map((row) => ["Protocol", row[0], row[1], row[2], "", ""]),
+  ];
 
   const html = `
     <div class="artifact-card">
@@ -797,7 +859,10 @@ document.querySelector("#runBrief").addEventListener("click", () => {
       <p><strong>Pass/fail gate:</strong> ${escapeHtml(threshold)}</p>
     </div>
     ${table(["ID", "Assumption", "What must be true", "Evidence test", "Risk"], assumptions)}
+    ${table(["ID", "Area", "Research question", "Evidence method"], researchQuestions)}
     ${table(["Risk ID", "Risk", "Severity", "Mitigation task"], riskRows)}
+    ${table(["Recruiting object", "Target", "Status", "Rule"], recruitRows)}
+    ${table(["Step", "Session stage", "What to capture"], protocolRows)}
     ${table(["Workstream", "Owner input", "Operational rule"], planRows)}
   `;
   const text = [
@@ -809,7 +874,13 @@ document.querySelector("#runBrief").addEventListener("click", () => {
     "",
     toTextTable(["ID", "Assumption", "What must be true", "Evidence test", "Risk"], assumptions),
     "",
+    toTextTable(["ID", "Area", "Research question", "Evidence method"], researchQuestions),
+    "",
     toTextTable(["Risk ID", "Risk", "Severity", "Mitigation task"], riskRows),
+    "",
+    toTextTable(["Recruiting object", "Target", "Status", "Rule"], recruitRows),
+    "",
+    toTextTable(["Step", "Session stage", "What to capture"], protocolRows),
     "",
     toTextTable(["Workstream", "Owner input", "Operational rule"], planRows),
   ].join("\n");
@@ -847,7 +918,32 @@ document.querySelector("#runQuestions").addEventListener("click", () => {
 
   const bank = type === "quant" ? quantRows : qualRows;
   const sliceMap = { short: 5, standard: 7, deep: bank.length };
-  const rows = bank.slice(0, sliceMap[length]);
+  const assumptionPrompts = (state.artifacts.researchQuestions || []).slice(0, 4).map((row) =>
+    type === "quant"
+      ? [`${row[0]}M`, row[1], `How strongly do you agree: ${row[2]}`, "1 strongly disagree - 5 strongly agree"]
+      : [`Brief ${row[0]}`, row[1], row[2], row[3]]
+  );
+  const rows = [...assumptionPrompts, ...bank].slice(0, sliceMap[length] + assumptionPrompts.length);
+  const taskRows = [
+    ["T1", "First impression", "Ask participant what they think this workflow does before prompting", "Value comprehension"],
+    ["T2", "Core task", "Have participant complete the main concept/prototype flow", "Task success and hesitation"],
+    ["T3", "Evidence inspection", "Ask what proof they need before using the output", "Trust threshold"],
+    ["T4", "Handoff", "Ask where the finding should go next", "Jira/Linear/report fit"],
+  ];
+  const metricRows =
+    type === "quant"
+      ? [
+          ["Value score", "Mean V1 rating", ">= 4.0", "Prioritize workflow"],
+          ["Ease score", "Mean E1 rating", ">= 4.0", "Design is understandable"],
+          ["Trust score", "Mean T1 rating", ">= 4.0", "Evidence model is credible"],
+          ["Adoption", "A1 likelihood", ">= 7/10", "Strong enough for follow-up"],
+        ]
+      : [
+          ["Task success", "Completed without moderator rescue", ">= 70%", "Flow is understandable"],
+          ["Time to value", "Can state value within first task", ">= 70%", "Messaging is clear"],
+          ["Trust evidence", "Names concrete proof needed", "100%", "Source needs are explicit"],
+          ["Handoff fit", "Can name destination for finding", ">= 70%", "Workflow connects to tools"],
+        ];
   const operatingRules =
     type === "quant"
       ? [
@@ -867,6 +963,15 @@ document.querySelector("#runQuestions").addEventListener("click", () => {
     question: row[2],
     capture: row[3],
   }));
+  state.artifacts.questionMetrics = metricRows;
+  state.artifacts.questionTasks = taskRows;
+  state.moduleExportRows.instrument = [
+    ["Section", "ID or stage", "Construct", "Prompt/item", "Capture or response"],
+    ...rows.map((row) => ["Instrument", row[0], row[1], row[2], row[3]]),
+    ...taskRows.map((row) => ["Task", row[0], row[1], row[2], row[3]]),
+    ...metricRows.map((row) => ["Metric", row[0], row[1], row[2], row[3]]),
+    ...operatingRules.map((rule, index) => ["Operating rule", `OR${index + 1}`, "", rule, ""]),
+  ];
 
   const html = `
     <div class="tag-row">
@@ -874,6 +979,8 @@ document.querySelector("#runQuestions").addEventListener("click", () => {
       <span class="tag">${escapeHtml(participants)}</span>
     </div>
     ${table(type === "quant" ? ["ID", "Construct", "Survey item", "Response type"] : ["Stage", "Construct", "Moderator prompt", "Capture rule"], rows)}
+    ${table(["Task ID", "Task", "Instruction", "Measure"], taskRows)}
+    ${table(["Metric", "Definition", "Target", "Decision use"], metricRows)}
     ${outputBlock("Operating rules", operatingRules)}
   `;
   const text = [
@@ -884,6 +991,10 @@ document.querySelector("#runQuestions").addEventListener("click", () => {
     `Decision threshold: ${threshold}`,
     "",
     toTextTable(type === "quant" ? ["ID", "Construct", "Survey item", "Response type"] : ["Stage", "Construct", "Moderator prompt", "Capture rule"], rows),
+    "",
+    toTextTable(["Task ID", "Task", "Instruction", "Measure"], taskRows),
+    "",
+    toTextTable(["Metric", "Definition", "Target", "Decision use"], metricRows),
     "",
     `Operating rules:\n- ${operatingRules.join("\n- ")}`,
   ].join("\n");
@@ -902,16 +1013,22 @@ document.querySelector("#runPersonas").addEventListener("click", () => {
   const lens = getValue("testLens");
   const count = Math.max(2, Math.min(Number(getValue("agentCount")) || 4, 6));
   const traits = ["speed-focused", "risk-sensitive", "detail-heavy", "collaboration-driven", "budget-aware", "accessibility-aware"];
+  const taskPlan = state.artifacts.questionTasks?.length
+    ? state.artifacts.questionTasks.map((row) => row[1])
+    : steps;
 
   const agents = Array.from({ length: count }, (_, index) => {
     const seed = seeds[index % seeds.length];
     const trait = traits[index % traits.length];
     const stuckStep = steps[(index + 1) % steps.length];
-    const severity = index % 3 === 0 ? "High" : index % 3 === 1 ? "Medium" : "Low";
+    const task = taskPlan[index % taskPlan.length] || stuckStep;
+    const evidenceDebt = (state.artifacts.competitive || []).filter((item) => item.confidence !== "High").length;
+    const severity = index % 3 === 0 || evidenceDebt > 1 ? "High" : index % 3 === 1 ? "Medium" : "Low";
     return {
       id: `A${index + 1}`,
       name: `${seed} / ${trait}`,
       motivation: `Uses ${lens} as the decision lens.`,
+      task,
       step: stuckStep,
       result: severity === "High" ? "Fail" : severity === "Medium" ? "Partial" : "Pass",
       evidence: `At "${stuckStep}", agent needs ${trait.includes("risk") ? "proof and rollback" : trait.includes("speed") ? "fewer choices" : "clearer next-step language"}.`,
@@ -923,6 +1040,7 @@ document.querySelector("#runPersonas").addEventListener("click", () => {
   const rows = agents.map((agent) => [
     agent.id,
     agent.name,
+    agent.task,
     agent.step,
     agent.result,
     agent.evidence,
@@ -958,13 +1076,34 @@ document.querySelector("#runPersonas").addEventListener("click", () => {
     agents.filter((agent) => agent.step === step && agent.result !== "Pass").length,
     agents.some((agent) => agent.step === step && agent.result === "Fail") ? "Needs redesign" : "Monitor",
   ]);
+  const runSummary = [
+    ["Agents run", agents.length, "Synthetic variants generated from personas/segments"],
+    ["Pass", agents.filter((agent) => agent.result === "Pass").length, "No immediate action"],
+    ["Partial", agents.filter((agent) => agent.result === "Partial").length, "Needs design follow-up"],
+    ["Fail", agents.filter((agent) => agent.result === "Fail").length, "Create issue before launch"],
+  ];
+  state.moduleExportRows.agentFindings = [
+    ["Section", "ID", "Name", "Task", "Step", "Result", "Evidence", "Severity"],
+    ...agents.map((agent) => [
+      "Agent run",
+      agent.id,
+      agent.name,
+      agent.task,
+      agent.step,
+      agent.result,
+      agent.evidence,
+      agent.severity,
+    ]),
+    ...issueRows.map((row) => ["Issue", row[0], row[1], "", "", row[2], row[3], row[4]]),
+  ];
 
   const html = `
     <div class="artifact-card">
       <h3>Prototype context</h3>
       <p>${escapeHtml(prototypeNotes)}</p>
     </div>
-    ${table(["Agent", "Persona variant", "Stress step", "Run result", "Observed friction", "Severity"], rows)}
+    ${table(["Metric", "Value", "Meaning"], runSummary)}
+    ${table(["Agent", "Persona variant", "Task", "Stress step", "Run result", "Observed friction", "Severity"], rows)}
     ${table(["Step", "Flow moment", "Open findings", "Operational status"], stepRows)}
     ${table(["Issue ID", "Issue", "Priority", "Evidence", "Acceptance criteria"], issueRows)}
   `;
@@ -973,7 +1112,9 @@ document.querySelector("#runPersonas").addEventListener("click", () => {
     "",
     `Prototype context: ${prototypeNotes}`,
     "",
-    toTextTable(["Agent", "Persona variant", "Stress step", "Run result", "Observed friction", "Severity"], rows),
+    toTextTable(["Metric", "Value", "Meaning"], runSummary),
+    "",
+    toTextTable(["Agent", "Persona variant", "Task", "Stress step", "Run result", "Observed friction", "Severity"], rows),
     "",
     toTextTable(["Step", "Flow moment", "Open findings", "Operational status"], stepRows),
     "",
@@ -1033,6 +1174,22 @@ document.querySelector("#runSynthesis").addEventListener("click", () => {
       shortQuote(participant.text, hitTags[0] || tracked[0] || ""),
     ];
   });
+  const codebookRows = tracked.slice(0, 8).map((tag, index) => [
+    `C${index + 1}`,
+    titleCase(tag),
+    `Evidence about ${tag} in participant language or behavior.`,
+    participants.filter((participant) => participant.text.toLowerCase().includes(tag.toLowerCase())).length,
+  ]);
+  const decisionRows = themeRows.map((row) => [
+    row[0],
+    row[2],
+    row[3],
+    row[6] === "Fix or de-risk before scaling"
+      ? "Create issue"
+      : row[2] === "Low"
+        ? "Follow-up probe"
+        : "Use in readout",
+  ]);
 
   state.artifacts.synthesis = themeRows.map((row) => ({
     theme: row[0],
@@ -1043,11 +1200,22 @@ document.querySelector("#runSynthesis").addEventListener("click", () => {
     implication: row[5],
     action: row[6],
   }));
+  state.artifacts.participantRows = participantRows;
+  state.artifacts.codebook = codebookRows;
+  state.moduleExportRows.synthesis = [
+    ["Section", "ID or theme", "Participants/codes", "Confidence/friction", "Quote/definition", "Implication/action"],
+    ...codebookRows.map((row) => ["Codebook", row[0], row[1], row[3], row[2], ""]),
+    ...themeRows.map((row) => ["Theme", row[0], row[1], row[2], row[4], `${row[5]} ${row[6]}`]),
+    ...participantRows.map((row) => ["Participant", row[0], row[1], row[2], row[3], ""]),
+    ...decisionRows.map((row) => ["Decision", row[0], row[1], row[2], "", row[3]]),
+  ];
 
   const html = `
     <div class="tag-row">${topKeywords.map((word) => `<span class="tag">${escapeHtml(word)}</span>`).join("")}</div>
+    ${table(["Code", "Label", "Definition", "Participant hits"], codebookRows)}
     ${table(["Theme", "Participants", "Confidence", "Severity", "Evidence quote", "Implication", "Action"], themeRows)}
     ${table(["Participant", "Codes", "Friction count", "Representative quote"], participantRows)}
+    ${table(["Theme", "Confidence", "Severity", "Operational decision"], decisionRows)}
     ${outputBlock("Operational readout", [
       "Promote High confidence + High severity rows into tracker issues.",
       "Keep Low confidence rows as follow-up probes, not findings.",
@@ -1059,9 +1227,13 @@ document.querySelector("#runSynthesis").addEventListener("click", () => {
     "",
     `Top keywords: ${topKeywords.join(", ")}`,
     "",
+    toTextTable(["Code", "Label", "Definition", "Participant hits"], codebookRows),
+    "",
     toTextTable(["Theme", "Participants", "Confidence", "Severity", "Evidence quote", "Implication", "Action"], themeRows),
     "",
     toTextTable(["Participant", "Codes", "Friction count", "Representative quote"], participantRows),
+    "",
+    toTextTable(["Theme", "Confidence", "Severity", "Operational decision"], decisionRows),
   ].join("\n");
 
   state.issues = [
@@ -1147,6 +1319,20 @@ document.querySelector("#runReport").addEventListener("click", () => {
       item.result,
       item.evidence,
     ]),
+    ...(state.artifacts.assumptions || []).slice(0, 4).map((item) => [
+      "Brief",
+      item.id,
+      item.risk,
+      item.area,
+      `${item.assumption} Test: ${item.test}`,
+    ]),
+    ...(state.artifacts.instrument || []).slice(0, 4).map((item) => [
+      "Instrument",
+      item.construct,
+      "Planned",
+      item.stage,
+      `${item.question} Capture: ${item.capture}`,
+    ]),
   ];
 
   const decisionRows = [
@@ -1161,9 +1347,27 @@ document.querySelector("#runReport").addEventListener("click", () => {
     `${sortedIssues.filter((issue) => issue.priority === "High").length} high-priority handoff item(s) need owner review.`,
     "Every tracker line includes evidence and acceptance criteria.",
   ];
+  const moduleReadinessRows = [
+    ["Competitive", state.outputs.competitive ? "Complete" : "Missing", `${state.artifacts.competitive.length} competitor rows`],
+    ["Brief", state.outputs.brief ? "Complete" : "Missing", `${state.artifacts.assumptions.length} assumptions`],
+    ["Questions", state.outputs.questions ? "Complete" : "Missing", `${state.artifacts.instrument.length} instrument rows`],
+    ["Personas", state.outputs.personas ? "Complete" : "Missing", `${state.artifacts.agentFindings.length} agent findings`],
+    ["Synthesis", state.outputs.synthesis ? "Complete" : "Missing", `${state.artifacts.synthesis.length} themes`],
+  ];
+  state.artifacts.reportDecisions = decisionRows;
+  state.moduleExportRows.report = [
+    ["Section", "Field 1", "Field 2", "Field 3", "Field 4", "Field 5", "Field 6"],
+    ...executive.map((row, index) => ["Executive summary", `S${index + 1}`, row, "", "", "", ""]),
+    ...moduleReadinessRows.map((row) => ["Readiness", ...row, "", "", ""]),
+    ...decisionRows.map((row) => ["Decision lane", ...row, "", "", ""]),
+    ...evidenceRows.map((row) => ["Evidence", ...row, ""]),
+    ...issueRows.map((row) => ["Issue", ...row]),
+  ];
 
   const html = `
     ${outputBlock("Executive summary", executive)}
+    <h3>Module readiness</h3>
+    ${table(["Module", "Status", "Artifact count"], moduleReadinessRows)}
     ${table(["Decision lane", "Item count", "Operating rule"], decisionRows)}
     <h3>Evidence ledger</h3>
     ${evidenceRows.length ? table(["Source", "Object", "Confidence", "Action", "Evidence"], evidenceRows) : outputBlock("Evidence", ["Run competitive, persona, or synthesis modules to populate the evidence ledger."])}
@@ -1177,8 +1381,13 @@ document.querySelector("#runReport").addEventListener("click", () => {
     "## Executive summary",
     `- ${executive.join("\n- ")}`,
     "",
+    "## Module readiness",
+    toTextTable(["Module", "Status", "Artifact count"], moduleReadinessRows),
+    "",
     "## Decision",
     `- ${stance}`,
+    "",
+    toTextTable(["Decision lane", "Item count", "Operating rule"], decisionRows),
     "",
     "## Evidence ledger",
     evidenceRows.length
@@ -1235,10 +1444,33 @@ document.querySelector("#downloadCompetitive").addEventListener("click", () => {
     showToast("Generate the competitive matrix first");
     return;
   }
-  const csv = rows
-    .map((row) => row.map((cell) => `"${String(cell || "").replaceAll('"', '""')}"`).join(","))
-    .join("\n");
-  download("competitive-analysis.csv", csv, "text/csv");
+  download("competitive-analysis.csv", rowsToCsv(rows), "text/csv");
+});
+
+document.querySelector("#downloadBrief").addEventListener("click", () => {
+  if (!requireOutput("brief", "the brief")) return;
+  download("research-brief.md", state.outputs.brief, "text/markdown");
+  if (state.moduleExportRows.brief?.length) {
+    window.setTimeout(() => download("research-brief-artifacts.csv", rowsToCsv(state.moduleExportRows.brief), "text/csv"), 80);
+  }
+});
+
+document.querySelector("#downloadInstrument").addEventListener("click", () => {
+  if (!requireOutput("questions", "the instrument")) return;
+  const rows = state.moduleExportRows.instrument || [];
+  download("research-instrument.csv", rowsToCsv(rows), "text/csv");
+});
+
+document.querySelector("#downloadAgentFindings").addEventListener("click", () => {
+  if (!requireOutput("personas", "agent findings")) return;
+  const rows = state.moduleExportRows.agentFindings || [];
+  download("synthetic-agent-findings.csv", rowsToCsv(rows), "text/csv");
+});
+
+document.querySelector("#downloadSynthesis").addEventListener("click", () => {
+  if (!requireOutput("synthesis", "synthesis")) return;
+  const rows = state.moduleExportRows.synthesis || [];
+  download("research-synthesis.csv", rowsToCsv(rows), "text/csv");
 });
 
 document.querySelector("#saveProject").addEventListener("click", () => {
@@ -1289,6 +1521,7 @@ const hydrate = (payload) => {
   state.competitiveExportRows = Array.isArray(payload.competitiveExportRows)
     ? payload.competitiveExportRows
     : [];
+  state.moduleExportRows = payload.moduleExportRows || {};
   selectors.projectName.value = payload.projectName || payload.fields?.projectName || state.projectName;
   Object.entries(payload.fields || {}).forEach(([id, value]) => {
     const field = document.querySelector(`#${id}`);
